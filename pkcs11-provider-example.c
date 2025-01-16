@@ -99,13 +99,6 @@ int main(int argc, char *argv[]) {
         pin = argv[2];
     }
 
-    printf("PKCS#11 URI: %s\n", pkcs11_uri);
-    if (pin) {
-        printf("PKCS#11 PIN: %s\n", pin);
-    } else {
-        printf("PKCS#11 PIN: not provided\n");
-    }
-
     EVP_PKEY *key = load_key_provider(pkcs11_uri, pin);
     if (key) {
         int key_type = EVP_PKEY_base_id(key);
