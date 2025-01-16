@@ -1,5 +1,9 @@
 #!/bin/sh -e
 #
+# Copyright (c) 2025
+# Embetrix Embedded Systems Solutions, ayoub.zaki@embetrix.com
+# 
+
 
 export PKCS11_MODULE_PATH=/usr/lib/softhsm/libsofthsm2.so
 export PKCS11_PROVIDER_MODULE_PATH=/usr/lib/x86_64-linux-gnu/softhsm/libsofthsm2.so

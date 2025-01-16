@@ -1,6 +1,6 @@
 # PKCS#11 Provider Example
 
-This project demonstrates how to use the OpenSSL pkcs11-provider API to access PKCS#11 tokens and read private keys.
+This project demonstrates how to use the OpenSSL pkcs11-provider API in C to access PKCS#11 tokens and read private keys.
 
 
 ## Install Dependencies
@@ -22,5 +22,5 @@ make
 ## Test
 
 ```sh
-ctest -V
+pkcs11-provider-example_test.sh
 ```
