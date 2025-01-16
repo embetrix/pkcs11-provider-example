@@ -107,6 +107,7 @@ cleanup:
 }
 
 int main(int argc, char *argv[]) {
+    const char *pkcs11_uri = NULL;
     const char *pin = NULL;
     int ret = -1;
 
@@ -115,7 +116,7 @@ int main(int argc, char *argv[]) {
         return ret;
     }
 
-    const char *pkcs11_uri = argv[1];
+    pkcs11_uri = argv[1];
     if (argc == 3) {
         pin = argv[2];
     }
