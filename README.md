@@ -22,5 +22,5 @@ make
 ## Test
 
 ```sh
-pkcs11-provider-example_test.sh
+./pkcs11-provider-example_test.sh
 ```
