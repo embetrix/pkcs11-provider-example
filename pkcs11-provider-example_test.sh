@@ -20,4 +20,5 @@ pkcs11-tool --pin $PIN --module $PKCS11_MODULE_PATH  --keypairgen --key-type RSA
 pkcs11-tool --pin $PIN --module $PKCS11_MODULE_PATH  --keypairgen --key-type EC:prime256v1 --label "testECCKey" --id 3
 
 ./pkcs11-provider-example "pkcs11:object=testRSAKey;type=private?pin-value=12345"
-./pkcs11-provider-example "pkcs11:object=testECCKey;type=private" "12345"
+./pkcs11-provider-example "pkcs11:object=testECCKey" "12345"
+./pkcs11-provider-example "pkcs11:object=testECCKey;type=public"

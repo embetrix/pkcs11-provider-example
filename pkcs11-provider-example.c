@@ -35,7 +35,7 @@ int ui_get_pin(UI *ui, UI_STRING *uis) {
     return (ret == 0) ? 1 : -1;
 }
 
-EVP_PKEY *load_key_provider(const char *pkcs11_uri, const char *pin) {
+EVP_PKEY *provider_load_private_key(const char *pkcs11_uri, const char *pin) {
     OSSL_PROVIDER *pkcs11_provider = NULL;
     OSSL_PROVIDER *default_provider = NULL;
     OSSL_STORE_CTX *store = NULL;
@@ -106,10 +106,70 @@ cleanup:
     return pkey;
 }
 
+EVP_PKEY *provider_load_public_key(const char *pkcs11_uri) {
+    OSSL_PROVIDER *pkcs11_provider = NULL;
+    OSSL_PROVIDER *default_provider = NULL;
+    OSSL_STORE_CTX *store = NULL;
+    OSSL_STORE_INFO *store_info = NULL;
+    EVP_PKEY *pubkey = NULL;
+
+    /* Load the default provider */
+    default_provider = OSSL_PROVIDER_load(NULL, "default");
+    if (!default_provider) {
+        fprintf(stderr, "Failed to load default provider\n");
+        goto cleanup;
+    }
+
+    /* Load the PKCS#11 provider */
+    pkcs11_provider = OSSL_PROVIDER_load(NULL, "pkcs11");
+    if (!pkcs11_provider) {
+        fprintf(stderr, "Failed to load PKCS#11 provider\n");
+        goto cleanup;
+    }
+
+    store = OSSL_STORE_open(pkcs11_uri, NULL, NULL, NULL, NULL);
+    if (!store) {
+        fprintf(stderr, "Failed to open OSSL_STORE (check URI or provider setup)\n");
+        goto cleanup;
+    }
+
+    while ((store_info = OSSL_STORE_load(store)) != NULL) {
+        int info_type = OSSL_STORE_INFO_get_type(store_info);
+
+        if (info_type == OSSL_STORE_INFO_PUBKEY) {
+            /* Extract the key */
+            pubkey = OSSL_STORE_INFO_get1_PUBKEY(store_info);
+            if (pubkey) {
+                break;
+            }
+        }
+        OSSL_STORE_INFO_free(store_info);
+        store_info = NULL;
+    }
+
+    if (!pubkey) {
+        fprintf(stderr, "Failed to load public key\n");
+    }
+
+cleanup:
+    if (store) {
+        OSSL_STORE_close(store);
+    }
+    if (pkcs11_provider) {
+        OSSL_PROVIDER_unload(pkcs11_provider);
+    }
+    if (default_provider) {
+        OSSL_PROVIDER_unload(default_provider);
+    }
+
+    return pubkey;
+}
+
 int main(int argc, char *argv[]) {
     const char *pkcs11_uri = NULL;
     const char *pin = NULL;
     int ret = -1;
+    int is_private = 1;
 
     if (argc < 2 || argc > 3) {
         fprintf(stderr, "Usage: %s <pkcs11-uri> [pkcs11-pin]\n", argv[0]);
@@ -117,24 +177,34 @@ int main(int argc, char *argv[]) {
     }
 
     pkcs11_uri = argv[1];
+    if (strstr(pkcs11_uri, "type=public") != NULL) {
+        is_private = 0;
+    }
+
     if (argc == 3) {
         pin = argv[2];
     }
 
-    EVP_PKEY *key = load_key_provider(pkcs11_uri, pin);
+    EVP_PKEY *key = NULL;
+    if (is_private) {
+        key = provider_load_private_key(pkcs11_uri, pin);
+    } else {
+        key = provider_load_public_key(pkcs11_uri);
+    }
+
     if (key) {
         int key_type = EVP_PKEY_base_id(key);
         if (key_type == EVP_PKEY_RSA) {
-            printf("Loaded an RSA private key.\n");
+            printf("Loaded an RSA %s key.\n", is_private ? "private" : "public");
         } else if (key_type == EVP_PKEY_EC) {
-            printf("Loaded an ECC private key.\n");
+            printf("Loaded an ECC %s key.\n", is_private ? "private" : "public");
         } else {
-            fprintf(stderr, "Loaded a private key of unknown type (base_id=%d).\n", key_type);
+            fprintf(stderr, "Loaded a %s key of unknown type (base_id=%d).\n", is_private ? "private" : "public", key_type);
         }
         EVP_PKEY_free(key);
         ret = 0;
     } else {
-        fprintf(stderr, "Failed to read private key\n");
+        fprintf(stderr, "Failed to read %s key\n", is_private ? "private" : "public");
     }
 
     return ret;
