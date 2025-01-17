@@ -22,3 +22,10 @@ pkcs11-tool --pin $PIN --module $PKCS11_MODULE_PATH  --keypairgen --key-type EC:
 ./pkcs11-provider-example "pkcs11:object=testRSAKey;type=private?pin-value=12345"
 ./pkcs11-provider-example "pkcs11:object=testECCKey" "12345"
 ./pkcs11-provider-example "pkcs11:object=testECCKey;type=public"
+
+export OPENSSL_CONF=$PWD/openssl.cnf
+dd if=/dev/urandom of=data.bin bs=1M count=1 > /dev/null 2>&1
+openssl dgst -sha256 -sign   "pkcs11:object=testRSAKey;type=private?pin-value=12345" -out data.bin.sig data.bin
+openssl dgst -sha256 -verify "pkcs11:object=testRSAKey;type=public" -signature data.bin.sig data.bin
+openssl dgst -sha256 -sign   "pkcs11:object=testECCKey;type=private?pin-value=12345" -out data.bin.sig data.bin
+openssl dgst -sha256 -verify "pkcs11:object=testECCKey;type=public" -signature data.bin.sig data.bin
