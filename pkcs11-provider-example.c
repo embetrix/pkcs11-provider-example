@@ -31,7 +31,7 @@ int ui_get_pin(UI *ui, UI_STRING *uis) {
         return -1;
     }
     int ret = UI_set_result(ui, uis, pin);
-    return (ret == 0) ? 1 : 0;
+    return (ret == 0) ? 1 : -1;
 }
 
 EVP_PKEY *provider_load_private_key(const char *pkcs11_uri, const char *pin) {
