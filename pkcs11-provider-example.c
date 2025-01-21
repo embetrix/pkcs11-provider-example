@@ -191,6 +191,11 @@ X509 *provider_load_cert(const char *pkcs11_uri) {
         goto cleanup;
     }
 
+    if (OSSL_STORE_expect(store, OSSL_STORE_INFO_CERT) != 1) {
+        fprintf(stderr, "Failed to expect certificate\n");
+        goto cleanup;
+    }
+
     while ((store_info = OSSL_STORE_load(store)) != NULL) {
         int info_type = OSSL_STORE_INFO_get_type(store_info);
         if (info_type == OSSL_STORE_INFO_CERT) {

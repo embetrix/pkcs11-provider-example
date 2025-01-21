@@ -29,8 +29,8 @@ pkcs11-tool --pin $PIN --module $PKCS11_MODULE_PATH  --write-object testECCCert.
 ./pkcs11-provider-example "pkcs11:object=testRSAKey;type=private?pin-value=12345"
 ./pkcs11-provider-example "pkcs11:object=testECCKey" "12345"
 ./pkcs11-provider-example "pkcs11:object=testECCKey;type=public"
-./pkcs11-provider-example "pkcs11:object=testRSACert;type=cert?pin-value=12345"
-./pkcs11-provider-example "pkcs11:object=testECCCert;type=cert?pin-value=12345"
+./pkcs11-provider-example "pkcs11:object=testRSACert;type=cert"
+./pkcs11-provider-example "pkcs11:object=testECCCert;type=cert"
 
 dd if=/dev/urandom of=data.bin bs=1M count=1 > /dev/null 2>&1
 openssl dgst -sha256 -sign   "pkcs11:object=testRSAKey;type=private?pin-value=12345" -out data.bin.sig data.bin
