@@ -23,7 +23,6 @@
 #include <openssl/evp.h>
 #include <openssl/provider.h>
 #include <openssl/store.h>
-#include <openssl/core_names.h>
 #include <openssl/ui.h>
 
 int ui_get_pin(UI *ui, UI_STRING *uis) {
