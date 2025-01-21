@@ -31,7 +31,7 @@ int ui_get_pin(UI *ui, UI_STRING *uis) {
         return -1;
     }
     int ret = UI_set_result(ui, uis, pin);
-    return (ret == 0) ? 1 : -1;
+    return (ret == 0) ? 1 : 0;
 }
 
 EVP_PKEY *provider_load_private_key(const char *pkcs11_uri, const char *pin) {
@@ -237,6 +237,10 @@ int main(int argc, char *argv[]) {
     }
 
     pkcs11_uri = argv[1];
+    if (pkcs11_uri == NULL || strlen(pkcs11_uri) == 0) {
+        fprintf(stderr, "The pkcs11-uri cannot be empty\n");
+        return ret;
+    }
     if (strstr(pkcs11_uri, "type=cert") != NULL) {
         is_cert = 1;
     }
@@ -288,10 +292,23 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if(key || cert) {
+    if (key || cert) {
         ret = 0;
     }
-    EVP_PKEY_free(key);
-    X509_free(cert);
+
+    if (key) {
+        EVP_PKEY_free(key);
+    }
+
+    if (cert) {
+        X509_free(cert);
+    }
+
+    // Clean up sensitive data
+    if (pin)
+        OPENSSL_cleanse((void *)pin, strlen(pin));
+    if (pkcs11_uri)
+        OPENSSL_cleanse((void *)pkcs11_uri, strlen(pkcs11_uri));
+
     return ret;
 }
