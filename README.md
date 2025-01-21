@@ -1,6 +1,6 @@
 # PKCS#11 Provider C API Example
 
-This example demonstrates how to use the OpenSSL pkcs11-provider API in C to access PKCS#11 tokens and read private/public keys.
+This example demonstrates how to use the OpenSSL pkcs11-provider API in C to access PKCS#11 tokens and read private/public keys or certificates. 
 
 
 ## Install Dependencies

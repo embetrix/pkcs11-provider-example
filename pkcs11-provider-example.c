@@ -164,11 +164,72 @@ cleanup:
     return pubkey;
 }
 
+X509 *provider_load_cert(const char *pkcs11_uri) {
+    OSSL_PROVIDER *pkcs11_provider = NULL;
+    OSSL_PROVIDER *default_provider = NULL;
+    OSSL_STORE_CTX *store = NULL;
+    OSSL_STORE_INFO *store_info = NULL;
+    X509 *cert = NULL;
+
+    /* Load the default provider */
+    default_provider = OSSL_PROVIDER_load(NULL, "default");
+    if (!default_provider) {
+        fprintf(stderr, "Failed to load default provider\n");
+        goto cleanup;
+    }
+
+    /* Load the PKCS#11 provider */
+    pkcs11_provider = OSSL_PROVIDER_load(NULL, "pkcs11");
+    if (!pkcs11_provider) {
+        fprintf(stderr, "Failed to load PKCS#11 provider\n");
+        goto cleanup;
+    }
+
+    store = OSSL_STORE_open(pkcs11_uri, NULL, NULL, NULL, NULL);
+    if (!store) {
+        fprintf(stderr, "Failed to open OSSL_STORE (check URI or provider setup)\n");
+        goto cleanup;
+    }
+
+    while ((store_info = OSSL_STORE_load(store)) != NULL) {
+        int info_type = OSSL_STORE_INFO_get_type(store_info);
+        if (info_type == OSSL_STORE_INFO_CERT) {
+            /* Extract the certificate */
+            cert = OSSL_STORE_INFO_get1_CERT(store_info);
+            if (cert) {
+                break;
+            }
+        }
+        OSSL_STORE_INFO_free(store_info);
+        store_info = NULL;
+    }
+
+    if (!cert) {
+        fprintf(stderr, "Failed to load certificate\n");
+    }
+
+cleanup:
+    if (store) {
+        OSSL_STORE_close(store);
+    }
+    if (pkcs11_provider) {
+        OSSL_PROVIDER_unload(pkcs11_provider);
+    }
+    if (default_provider) {
+        OSSL_PROVIDER_unload(default_provider);
+    }
+
+    return cert;
+}
+
 int main(int argc, char *argv[]) {
     const char *pkcs11_uri = NULL;
     const char *pin = NULL;
+    EVP_PKEY *key = NULL;
+    X509 *cert = NULL;
     int ret = -1;
     int is_private = 1;
+    int is_cert = 0;
 
     if (argc < 2 || argc > 3) {
         fprintf(stderr, "Usage: %s <pkcs11-uri> [pkcs11-pin]\n", argv[0]);
@@ -176,6 +237,9 @@ int main(int argc, char *argv[]) {
     }
 
     pkcs11_uri = argv[1];
+    if (strstr(pkcs11_uri, "type=cert") != NULL) {
+        is_cert = 1;
+    }
     if (strstr(pkcs11_uri, "type=public") != NULL) {
         is_private = 0;
     }
@@ -184,27 +248,50 @@ int main(int argc, char *argv[]) {
         pin = argv[2];
     }
 
-    EVP_PKEY *key = NULL;
-    if (is_private) {
-        key = provider_load_private_key(pkcs11_uri, pin);
-    } else {
-        key = provider_load_public_key(pkcs11_uri);
-    }
-
-    if (key) {
-        int key_type = EVP_PKEY_base_id(key);
-        if (key_type == EVP_PKEY_RSA) {
-            printf("Loaded an RSA %s key.\n", is_private ? "private" : "public");
-        } else if (key_type == EVP_PKEY_EC) {
-            printf("Loaded an ECC %s key.\n", is_private ? "private" : "public");
+    if (is_cert) {
+        cert = provider_load_cert(pkcs11_uri);
+        if (cert) {
+            X509_NAME *subject_name = X509_get_subject_name(cert);
+            if (subject_name) {
+                char *subject = X509_NAME_oneline(subject_name, NULL, 0);
+                if (subject) {
+                    printf("Certificate Subject: %s\n", subject);
+                    OPENSSL_free(subject);
+                } else {
+                    fprintf(stderr, "Failed to get certificate subject\n");
+                }
+            } else {
+                fprintf(stderr, "Failed to get subject name from certificate\n");
+            }
         } else {
-            fprintf(stderr, "Loaded a %s key of unknown type (base_id=%d).\n", is_private ? "private" : "public", key_type);
+            fprintf(stderr, "Failed to read certificate\n");
         }
-        EVP_PKEY_free(key);
-        ret = 0;
-    } else {
-        fprintf(stderr, "Failed to read %s key\n", is_private ? "private" : "public");
     }
 
+    else {
+        if (is_private) {
+            key = provider_load_private_key(pkcs11_uri, pin);
+        } else {
+            key = provider_load_public_key(pkcs11_uri);
+        }
+        if (key) {
+            int key_type = EVP_PKEY_base_id(key);
+            if (key_type == EVP_PKEY_RSA) {
+                printf("Loaded an RSA %s key.\n", is_private ? "private" : "public");
+            } else if (key_type == EVP_PKEY_EC) {
+                printf("Loaded an ECC %s key.\n", is_private ? "private" : "public");
+            } else {
+                fprintf(stderr, "Loaded a %s key of unknown type (base_id=%d).\n", is_private ? "private" : "public", key_type);
+            }
+        } else {
+            fprintf(stderr, "Failed to read %s key\n", is_private ? "private" : "public");
+        }
+    }
+
+    if(key || cert) {
+        ret = 0;
+    }
+    EVP_PKEY_free(key);
+    X509_free(cert);
     return ret;
 }

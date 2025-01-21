@@ -19,11 +19,19 @@ pkcs11-tool --pin $PIN --module $PKCS11_MODULE_PATH --slot-index=0 --init-token 
 pkcs11-tool --pin $PIN --module $PKCS11_MODULE_PATH  --keypairgen --key-type RSA:2048      --label "testRSAKey" --id 2
 pkcs11-tool --pin $PIN --module $PKCS11_MODULE_PATH  --keypairgen --key-type EC:prime256v1 --label "testECCKey" --id 3
 
+export OPENSSL_CONF=$PWD/openssl.cnf
+openssl req -new -x509 -key "pkcs11:object=testRSAKey?pin-value=12345"  -outform der -out testRSACert.der -days 365 -subj "/O=Embetrix/CN=testRSACert/emailAddress=info@embetrix.com"
+openssl req -new -x509 -key "pkcs11:object=testECCKey?pin-value=12345"  -outform der -out testECCCert.der -days 365 -subj "/O=Embetrix/CN=testECCCert/emailAddress=info@embetrix.com"
+
+pkcs11-tool --pin $PIN --module $PKCS11_MODULE_PATH  --write-object testRSACert.der  --type cert --label testRSACert  --id 4
+pkcs11-tool --pin $PIN --module $PKCS11_MODULE_PATH  --write-object testECCCert.der  --type cert --label testECCCert  --id 5
+
 ./pkcs11-provider-example "pkcs11:object=testRSAKey;type=private?pin-value=12345"
 ./pkcs11-provider-example "pkcs11:object=testECCKey" "12345"
 ./pkcs11-provider-example "pkcs11:object=testECCKey;type=public"
+./pkcs11-provider-example "pkcs11:object=testRSACert;type=cert?pin-value=12345"
+./pkcs11-provider-example "pkcs11:object=testECCCert;type=cert?pin-value=12345"
 
-export OPENSSL_CONF=$PWD/openssl.cnf
 dd if=/dev/urandom of=data.bin bs=1M count=1 > /dev/null 2>&1
 openssl dgst -sha256 -sign   "pkcs11:object=testRSAKey;type=private?pin-value=12345" -out data.bin.sig data.bin
 openssl dgst -sha256 -verify "pkcs11:object=testRSAKey;type=public" -signature data.bin.sig data.bin
