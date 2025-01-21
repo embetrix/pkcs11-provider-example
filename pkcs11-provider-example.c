@@ -70,6 +70,11 @@ EVP_PKEY *provider_load_private_key(const char *pkcs11_uri, const char *pin) {
         goto cleanup;
     }
 
+    if (OSSL_STORE_expect(store, OSSL_STORE_INFO_PKEY) != 1) {
+        fprintf(stderr, "Failed to expect private key\n");
+        goto cleanup;
+    }
+
     while ((store_info = OSSL_STORE_load(store)) != NULL) {
         int info_type = OSSL_STORE_INFO_get_type(store_info);
 
@@ -129,6 +134,11 @@ EVP_PKEY *provider_load_public_key(const char *pkcs11_uri) {
     store = OSSL_STORE_open(pkcs11_uri, NULL, NULL, NULL, NULL);
     if (!store) {
         fprintf(stderr, "Failed to open OSSL_STORE (check URI or provider setup)\n");
+        goto cleanup;
+    }
+
+    if (OSSL_STORE_expect(store, OSSL_STORE_INFO_PUBKEY) != 1) {
+        fprintf(stderr, "Failed to expect public key\n");
         goto cleanup;
     }
 
