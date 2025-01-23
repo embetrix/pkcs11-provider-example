@@ -26,11 +26,11 @@ openssl req -new -x509 -key "pkcs11:object=testECCKey?pin-value=12345"  -outform
 pkcs11-tool --pin $PIN --module $PKCS11_MODULE_PATH  --write-object testRSACert.der  --type cert --label testRSACert  --id 4
 pkcs11-tool --pin $PIN --module $PKCS11_MODULE_PATH  --write-object testECCCert.der  --type cert --label testECCCert  --id 5
 
-./pkcs11-provider-example "pkcs11:object=testRSAKey;type=private?pin-value=12345"
-./pkcs11-provider-example "pkcs11:object=testECCKey" "12345"
-./pkcs11-provider-example "pkcs11:object=testECCKey;type=public"
-./pkcs11-provider-example "pkcs11:object=testRSACert;type=cert"
-./pkcs11-provider-example "pkcs11:object=testECCCert;type=cert"
+./pkcs11-provider-example "pkcs11:object=testRSAKey;type=private?pin-value=12345" $PKCS11_MODULE_PATH
+./pkcs11-provider-example "pkcs11:object=testECCKey" $PKCS11_MODULE_PATH "12345"
+./pkcs11-provider-example "pkcs11:object=testECCKey;type=public" $PKCS11_MODULE_PATH
+./pkcs11-provider-example "pkcs11:object=testRSACert;type=cert" $PKCS11_MODULE_PATH
+./pkcs11-provider-example "pkcs11:object=testECCCert;type=cert" $PKCS11_MODULE_PATH
 
 dd if=/dev/urandom of=data.bin bs=1M count=1 > /dev/null 2>&1
 openssl dgst -sha256 -sign   "pkcs11:object=testRSAKey;type=private?pin-value=12345" -out data.bin.sig data.bin

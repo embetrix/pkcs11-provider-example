@@ -24,6 +24,7 @@
 #include <openssl/provider.h>
 #include <openssl/store.h>
 #include <openssl/ui.h>
+#include <openssl/opensslv.h>
 
 int ui_get_pin(UI *ui, UI_STRING *uis) {
     const char *pin = (const char *)UI_get0_user_data(ui);
@@ -34,23 +35,32 @@ int ui_get_pin(UI *ui, UI_STRING *uis) {
     return (ret == 0) ? 1 : -1;
 }
 
-EVP_PKEY *provider_load_private_key(const char *pkcs11_uri, const char *pin) {
+EVP_PKEY *provider_load_private_key(const char *pkcs11_uri, const char *pin, const char *module_path) {
     OSSL_PROVIDER *pkcs11_provider = NULL;
     OSSL_PROVIDER *default_provider = NULL;
     OSSL_STORE_CTX *store = NULL;
     OSSL_STORE_INFO *store_info = NULL;
     EVP_PKEY *pkey = NULL;
     UI_METHOD *ui_method = NULL;
-
+#if OPENSSL_VERSION_NUMBER >= 0x30200000L
+    /* Create the OSSL_PARAM to specify the module_path */
+    OSSL_PARAM params[] = {
+        OSSL_PARAM_construct_utf8_string("pkcs11-module-path", (char *)module_path, 0),
+        OSSL_PARAM_construct_end()
+    };
+#endif
     /* Load the default provider */
     default_provider = OSSL_PROVIDER_load(NULL, "default");
     if (!default_provider) {
         fprintf(stderr, "Failed to load default provider\n");
         goto cleanup;
     }
-
     /* Load the PKCS#11 provider */
+#if OPENSSL_VERSION_NUMBER >= 0x30200000L
+    pkcs11_provider = OSSL_PROVIDER_load_ex(NULL, "pkcs11", params);
+#else
     pkcs11_provider = OSSL_PROVIDER_load(NULL, "pkcs11");
+#endif
     if (!pkcs11_provider) {
         fprintf(stderr, "Failed to load PKCS#11 provider\n");
         goto cleanup;
@@ -110,13 +120,19 @@ cleanup:
     return pkey;
 }
 
-EVP_PKEY *provider_load_public_key(const char *pkcs11_uri) {
+EVP_PKEY *provider_load_public_key(const char *pkcs11_uri, const char *module_path) {
     OSSL_PROVIDER *pkcs11_provider = NULL;
     OSSL_PROVIDER *default_provider = NULL;
     OSSL_STORE_CTX *store = NULL;
     OSSL_STORE_INFO *store_info = NULL;
     EVP_PKEY *pubkey = NULL;
-
+#if OPENSSL_VERSION_NUMBER >= 0x30200000L
+    /* Create the OSSL_PARAM to specify the module_path */
+    OSSL_PARAM params[] = {
+        OSSL_PARAM_construct_utf8_string("pkcs11-module-path", (char *)module_path, 0),
+        OSSL_PARAM_construct_end()
+    };
+#endif
     /* Load the default provider */
     default_provider = OSSL_PROVIDER_load(NULL, "default");
     if (!default_provider) {
@@ -125,7 +141,11 @@ EVP_PKEY *provider_load_public_key(const char *pkcs11_uri) {
     }
 
     /* Load the PKCS#11 provider */
+#if OPENSSL_VERSION_NUMBER >= 0x30200000L
+    pkcs11_provider = OSSL_PROVIDER_load_ex(NULL, "pkcs11", params);
+#else
     pkcs11_provider = OSSL_PROVIDER_load(NULL, "pkcs11");
+#endif
     if (!pkcs11_provider) {
         fprintf(stderr, "Failed to load PKCS#11 provider\n");
         goto cleanup;
@@ -174,13 +194,19 @@ cleanup:
     return pubkey;
 }
 
-X509 *provider_load_cert(const char *pkcs11_uri) {
+X509 *provider_load_cert(const char *pkcs11_uri, const char *module_path) {
     OSSL_PROVIDER *pkcs11_provider = NULL;
     OSSL_PROVIDER *default_provider = NULL;
     OSSL_STORE_CTX *store = NULL;
     OSSL_STORE_INFO *store_info = NULL;
     X509 *cert = NULL;
-
+#if OPENSSL_VERSION_NUMBER >= 0x30200000L
+    /* Create the OSSL_PARAM to specify the module_path */
+    OSSL_PARAM params[] = {
+        OSSL_PARAM_construct_utf8_string("pkcs11-module-path", (char *)module_path, 0),
+        OSSL_PARAM_construct_end()
+    };
+#endif
     /* Load the default provider */
     default_provider = OSSL_PROVIDER_load(NULL, "default");
     if (!default_provider) {
@@ -189,7 +215,11 @@ X509 *provider_load_cert(const char *pkcs11_uri) {
     }
 
     /* Load the PKCS#11 provider */
+#if OPENSSL_VERSION_NUMBER >= 0x30200000L
+    pkcs11_provider = OSSL_PROVIDER_load_ex(NULL, "pkcs11", params);
+#else
     pkcs11_provider = OSSL_PROVIDER_load(NULL, "pkcs11");
+#endif
     if (!pkcs11_provider) {
         fprintf(stderr, "Failed to load PKCS#11 provider\n");
         goto cleanup;
@@ -239,15 +269,17 @@ cleanup:
 
 int main(int argc, char *argv[]) {
     const char *pkcs11_uri = NULL;
+    const char *pkcs11_module_path = NULL;
     const char *pin = NULL;
+
     EVP_PKEY *key = NULL;
     X509 *cert = NULL;
     int ret = -1;
     int is_private = 1;
     int is_cert = 0;
 
-    if (argc < 2 || argc > 3) {
-        fprintf(stderr, "Usage: %s <pkcs11-uri> [pkcs11-pin]\n", argv[0]);
+    if (argc < 3 || argc > 4) {
+        fprintf(stderr, "Usage: %s <pkcs11-uri> <pkcs11-module-path> [pkcs11-pin]\n", argv[0]);
         return ret;
     }
 
@@ -256,19 +288,32 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "The pkcs11-uri cannot be empty\n");
         return ret;
     }
+
+    pkcs11_module_path = argv[2];
+    if (pkcs11_module_path == NULL || strlen(pkcs11_module_path) == 0) {
+        fprintf(stderr, "The pkcs11-module-path cannot be empty\n");
+        return ret;
+    }
+#if OPENSSL_VERSION_NUMBER < 0x30200000L
+    fprintf(stderr, "Setting pkcs11_module_path : %s is not supported in : %s\n",
+                     pkcs11_module_path, OpenSSL_version(OPENSSL_VERSION));
+    fprintf(stderr, "Use instead export PKCS11_PROVIDER_MODULE=%s\n",
+                     pkcs11_module_path); 
+#endif
+    if (argc == 4) {
+        pin = argv[3];
+    }
+
     if (strstr(pkcs11_uri, "type=cert") != NULL) {
         is_cert = 1;
     }
+
     if (strstr(pkcs11_uri, "type=public") != NULL) {
         is_private = 0;
     }
 
-    if (argc == 3) {
-        pin = argv[2];
-    }
-
     if (is_cert) {
-        cert = provider_load_cert(pkcs11_uri);
+        cert = provider_load_cert(pkcs11_uri, pkcs11_module_path);
         if (cert) {
             X509_NAME *subject_name = X509_get_subject_name(cert);
             if (subject_name) {
@@ -289,9 +334,9 @@ int main(int argc, char *argv[]) {
 
     else {
         if (is_private) {
-            key = provider_load_private_key(pkcs11_uri, pin);
+            key = provider_load_private_key(pkcs11_uri, pin, pkcs11_module_path);
         } else {
-            key = provider_load_public_key(pkcs11_uri);
+            key = provider_load_public_key(pkcs11_uri, pkcs11_module_path);
         }
         if (key) {
             int key_type = EVP_PKEY_base_id(key);
